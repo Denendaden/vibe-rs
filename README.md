@@ -18,7 +18,3 @@ If the command finishes successfully, the vibrations will gently fade out; other
 
 To adjust the speed of the vibrations, set the environment variable `VIBE_STRENGTH`.
 The default is 0.25, so the toys will vibrate at a quarter of their maximum speed.
-
-## What doesn't work yet?
-
-This seems to break programs that read from stdin.
