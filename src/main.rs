@@ -1,4 +1,4 @@
-use std::{env, error::Error, process::Command, time::Duration};
+use std::{env, error::Error, io::{self, Read, Write}, process::Command, time::Duration};
 
 use buttplug::{
     client::{ButtplugClient, ButtplugClientError, ScalarValueCommand},
@@ -26,21 +26,6 @@ fn print_usage() {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let address = env::var("VIBE_ADDRESS").unwrap_or("ws://localhost:12345".to_string());
-    let connector = new_json_ws_client_connector(&address);
-    let client = ButtplugClient::new("Vibe Client");
-
-    if let Err(e) = client.connect(connector).await {
-        eprintln!("error connecting client (is a server on?): {e}");
-        return Err(e.into());
-    }
-
-    // vibration strength used as a baseline
-    let strength = match env::var("VIBE_STRENGTH").ok() {
-        Some(s) => s.parse::<f64>().unwrap_or(0.25),
-        None => 0.25,
-    };
-
     let args: Vec<String> = env::args().collect();
 
     if args.len() <= 1 {
@@ -51,11 +36,33 @@ async fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
+    let address = env::var("VIBE_ADDRESS").unwrap_or("ws://localhost:12345".to_string());
+    let connector = new_json_ws_client_connector(&address);
+    let client = ButtplugClient::new("Vibe Client");
+
+    if let Err(e) = client.connect(connector).await {
+        eprintln!("Could not connect: {e}");
+
+        print!("Continue anyway? [Y/n] ");
+        let _ = io::stdout().flush();
+        let mut yn = [0];
+        let _ = io::stdin().read(&mut yn);
+        if yn[0] == b'n' || yn[0] == b'N' {
+            return Err(e.into());
+        }
+    }
+
+    // vibration strength used as a baseline
+    let strength = match env::var("VIBE_STRENGTH").ok() {
+        Some(s) => s.parse::<f64>().unwrap_or(0.25),
+        None => 0.25,
+    };
+
     // run the command that was supplied to us
     let mut child = match Command::new(&args[1]).args(&args[2..]).spawn() {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("error running command: {e}");
+            eprintln!("Error running command: {e}");
             return Err(e.into());
         }
     };
